@@ -1,19 +1,23 @@
 'use strict';
 
 var ihrisko = null;
+var protihracovaRuka = null;
 var naRuke = [];
 var karty = [];
 var kopa = [];
 var odhodeneKarty = [];
 var protihracNaRuke = [];
 
+var protihracZahralEso = false;
+var hracZahralEso = false;
+
 $(function() {
 	ihrisko = $('#hra');
+	protihracovaRuka = $('#protihrac');
 
 	zamiesaj(karty);
 	rozdaj();
-	dajPrvu();
-	setTimeout(zvyrazniHratelneKarty, 100);
+	zvyrazniHratelneKarty();
 
 	$('body').on('click', '#hra .karta', function(e) {
 		if($(this).hasClass('hratelna')) {
@@ -25,23 +29,138 @@ $(function() {
 				if(obj.id === idecko) {
 					return index;
 				}
-			})
+			});
 
 			var odhodenaKarta = naRuke.splice(result[0], 1);
 
 			odhodeneKarty.push(odhodenaKarta[0]);
+
+			if(odhodenaKarta[0].druh === 'eso') {
+				hracZahralEso = true;
+			}
 			
 			$(this).css('transform', 'rotate('+k12()+'deg)');
 			$(this).appendTo('#odhodenaKopa');
 
+			console.log('H>>> ' + odhodenaKarta[0].obr);
+
 			zvyrazniHratelneKarty();
+			tahProtiHraca();
+			zvyrazniHratelneKarty();
+			protihracZahralEso = false;
 		}
 	});
 
 	$('#tahaciaKopa .karta').on('click', function(e) {
 		tahajKartu();
+		tahProtiHraca();
 	});
 });
+
+function tahProtiHraca() {
+	//console.log('protihrac-------');
+	if(protihracNaRuke.length === 0) {
+		alert('Vyhral protihrac');
+		location.reload();
+	}
+	if(naRuke.length === 0) {
+		alert('vyhra!');
+		location.reload();
+	}
+
+	var coMozeZahrat = [];
+	var jeTamEso = odhodeneKarty[odhodeneKarty.length-1].druh === 'eso';
+
+	if(hracZahralEso === true) {
+		//console.log('hrac zahral eso');
+		protihracNaRuke.forEach(function(item, index) {
+			if(item.druh === 'eso') {
+				coMozeZahrat.push(item);
+			}
+		});
+	} else {
+		protihracNaRuke.forEach(function(item, index) {
+			if(item.hratelna === true) {
+				coMozeZahrat.push(item);
+			}
+		});
+	}
+	
+	var coZahra = coMozeZahrat[Math.floor(Math.random() * coMozeZahrat.length)];
+
+	if(typeof coZahra !== 'undefined') {
+		if(coZahra.druh === 'eso') {
+			protihracZahralEso = true;
+			//console.log('protihac zahrava eso');
+		}
+	}
+
+	if(typeof coZahra != 'undefined') {
+		coZahra.hratelna = false;
+		var idecko = coZahra.id;
+		
+		var result = $.map(protihracNaRuke, function(obj, index) {
+			if(obj.id === idecko) {
+				return index;
+			}
+		});
+
+		$('#'+coZahra.id).removeClass('hratelna');
+
+		var odhodenaKarta = protihracNaRuke.splice(result[0], 1);
+
+		odhodeneKarty.push(odhodenaKarta[0]);
+		console.log('zahral ' + odhodenaKarta[0].obr)
+		
+		$('#'+coZahra.id).css('transform', 'rotate('+k12()+'deg)');
+		$('#'+coZahra.id).appendTo('#odhodenaKopa');
+	} else {
+		if(!hracZahralEso || protihracZahralEso) {
+			protihracTahajKartu();
+			//console.log('taha si');
+		} else {
+			console.log('stoji');
+		}
+
+		hracZahralEso = false;
+	}
+
+	//ak hráč nemá žiadne eso, ide rovno 2. krát
+	if(typeof coZahra != 'undefined') {
+		if(coZahra.druh === 'eso') {
+			//console.log('protihac zahral eso');
+			var result = $.map(naRuke, function(obj, index) {
+				if(obj.druh === 'eso') {
+					return index;
+				}
+			});
+
+			if(result.length === 0) {
+				console.log('hrac nema eso, protihrac ide este raz');
+				tahProtiHraca();
+				zvyrazniHratelneKarty();
+			}
+		}
+	}
+
+	zvyrazniHratelneKarty();
+}
+
+function protihracTahajKartu() {
+	var tahanaKarta = kopa.splice(0, 1);
+	protihracNaRuke.push(tahanaKarta[0]);
+	
+	var html = '<div class="karta" id="'+tahanaKarta[0].id+'" style="background-image:url(sedmovekarty/'+tahanaKarta[0].obr+'.jpg)"></div>';
+	$(html).appendTo(protihracovaRuka);
+	zvyrazniHratelneKarty();
+
+	$('#tahaciaKopa .karta').each(function(index) {
+		if($(this).attr('id') === tahanaKarta[0].id) {
+			$(this).remove();
+			console.log('potiahol si ' + tahanaKarta[0].obr);
+		}
+	});
+};
 
 function tahajKartu() {
 	var tahanaKarta = kopa.splice(0, 1);
@@ -50,16 +169,49 @@ function tahajKartu() {
 	var html = '<div class="karta" id="'+tahanaKarta[0].id+'" style="background-image:url(sedmovekarty/'+tahanaKarta[0].obr+'.jpg)"></div>';
 	$(html).appendTo(ihrisko);
 	zvyrazniHratelneKarty();
+
+	$('#tahaciaKopa .karta').each(function(index) {
+		if($(this).attr('id') === tahanaKarta[0].id) {
+			$(this).remove();
+			console.log('H>>> taha');
+		}
+	});
 };
 
 function zvyrazniHratelneKarty() {
 	var najvyssiaOdhodenaKarta = odhodeneKarty[odhodeneKarty.length-1];
 
 	naRuke.forEach(function(item, index) {
-		if(najvyssiaOdhodenaKarta.farba === item.farba || najvyssiaOdhodenaKarta.druh === item.druh || item.druh === 'hornik') {
-			$('#'+item.id).addClass('hratelna');
+		if(protihracZahralEso) {
+			//console.log('protihac zahral eso');
+			
+			if(item.druh === 'eso') {
+				naRuke[index].hratelna = true;
+				$('#hra').find('#'+item.id).addClass('hratelna');
+			} else {
+				naRuke[index].hratelna = false;
+				$('#hra').find('#'+item.id).removeClass('hratelna');
+			}
+			protihracZahralEso = false;
 		} else {
-			$('#'+item.id).removeClass('hratelna');
+			if(najvyssiaOdhodenaKarta.farba === item.farba || najvyssiaOdhodenaKarta.druh === item.druh || item.druh === 'hornik') {
+				naRuke[index].hratelna = true;
+				$('#hra').find('#'+item.id).addClass('hratelna');
+			} else {
+				naRuke[index].hratelna = false;
+				$('#hra').find('#'+item.id).removeClass('hratelna');
+			}
+		}
+		
+	});
+
+	protihracNaRuke.forEach(function(item, index) {
+		if(najvyssiaOdhodenaKarta.farba === item.farba || najvyssiaOdhodenaKarta.druh === item.druh || item.druh === 'hornik') {
+			protihracNaRuke[index].hratelna = true;
+			$('#protihrac').find('#'+item.id).addClass('hratelna');
+		} else {
+			protihracNaRuke[index].hratelna = false;
+			$('#protihrac').find('#'+item.id).removeClass('hratelna');
 		}
 	});
 };
@@ -69,6 +221,7 @@ function rozdaj() {
 	for(var i=0; i<5; i++) {
 		naRuke.push(karty[i]);
 	};
+	
 	//protihracovi
 	for(var i=5; i<10; i++) {
 		protihracNaRuke.push(karty[i]);
@@ -76,21 +229,31 @@ function rozdaj() {
 	//zvysok na kopu
 	for(var i=10; i<32; i++) {
 		kopa.push(karty[i]);
-		var html = '<div class="karta" id="'+karty[i].id+'" style="background-image:url(sedmovekarty/rub.jpg)"></div>';
-		$('#tahaciaKopa').append(html);
 	};
 
-	naRuke.forEach(function(item, index) {
-		var html = '<div class="karta" id="'+karty[index].id+'" style="background-image:url(sedmovekarty/'+karty[index].obr+'.jpg)"></div>';
-		$(ihrisko).append(html);
-	});
-};
-
-function dajPrvu() {
+	//umiestni prvu kartu z kopy na plochu.
 	var html = '<div class="karta otocena" id="'+kopa[0].id+'" style="background-image:url(sedmovekarty/'+kopa[0].obr+'.jpg)"></div>';
 	$(html).appendTo('#odhodenaKopa');
 	odhodeneKarty.push(kopa[0]);
 	kopa.splice(0, 1);
+
+	//umiestni karty na kopu
+	kopa.forEach(function(item, index) {
+		var html = '<div class="karta" id="'+item.id+'" style="background-image:url(sedmovekarty/rub.jpg)"></div>';
+		$('#tahaciaKopa').append(html);
+	});
+
+	//umiestni na ruku
+	naRuke.forEach(function(item, index) {
+		var html = '<div class="karta" id="'+item.id+'" style="background-image:url(sedmovekarty/'+item.obr+'.jpg)"></div>';
+		$(ihrisko).append(html);
+	});
+
+	//umiestni na ruku
+	protihracNaRuke.forEach(function(item, index) {
+		var html = '<div class="karta" id="'+item.id+'" style="background-image:url(sedmovekarty/'+item.obr+'.jpg)"></div>';
+		$(protihracovaRuka).append(html);
+	});
 };
 
 function zamiesaj(a) {
